@@ -38,7 +38,7 @@ using namespace std;
 
 void log(int client_socket, struct sockaddr_in server_address, const string user_message);
 
-int createSocket(const char *server_hostname, struct sockaddr_in *server_address);
+int createSocket(const string server_hostname, struct sockaddr_in *server_address);
 
 vector<string> explode_string(const string delimiter, string source);
 
@@ -67,8 +67,10 @@ int main(int argc, char *argv[]) {
 //    for (auto&& i : keywords) std::cout << i << ' ';
 //
 
+    //todo: create a thread for each irc channel
+    //all threads will share the same client socket, which must be protected with mutex!
 
-    syslog_socket = createSocket("127.0.0.1", &server_address); //todo: get from params!
+    syslog_socket = createSocket(syslog_server, &server_address); //todo: get from params!
     log(syslog_socket, server_address, "<xfajku06>: neco to dela");
 
 
@@ -107,14 +109,14 @@ void log(int client_socket, struct sockaddr_in server_address, const string user
         perror("ERROR: sendto");
 }
 
-int createSocket(const char *server_hostname, struct sockaddr_in *server_address) {
+int createSocket(const string server_hostname, struct sockaddr_in *server_address) {
     struct hostent *server;
     int client_socket;
 
 
     /* 2. ziskani adresy serveru pomoci DNS */
-    if ((server = gethostbyname(server_hostname)) == nullptr) {
-        fprintf(stderr, "ERROR: no such host as %s\n", server_hostname);
+    if ((server = gethostbyname(server_hostname.c_str())) == nullptr) {
+        cerr << "ERROR: no such host: " << server_hostname << endl;
         exit(EXIT_FAILURE);
     }
 
@@ -143,7 +145,7 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, std
                      vector<string> keywords) {
 
     *ircPort = -1;
-    *syslogServer = NULL;
+    *syslogServer = "";
 
     //program name + 2 parameters, both with value
     if (argc < 3) {
@@ -197,8 +199,8 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, std
 
     }
 
-    if (*syslogServer == NULL) {
-        *syslogServer = "127.0.0.1";
+    if (syslogServer->empty()) {
+        *syslogServer = string("127.0.0.1");
     }
 
 //    for (auto&& i : channels) std::cout << i << ' ';

@@ -59,6 +59,13 @@ const char *months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", 
  *
  */
 
+
+struct send_msg {
+    std::string user;
+    std::string message;
+    std::string channel;
+};
+
 using namespace std;
 
 void log(int client_socket, struct sockaddr_in server_address, const string user_message);
@@ -78,6 +85,10 @@ char* get_local_ip(int sock);
 void send_message(string message, int socket);
 
 string read_message(int socket);
+
+string get_today_date();
+
+void handle_privmsg(string response, unsigned long privmsg_position, vector<string> tokens, int irc_socket) ;
 
 int main(int argc, char *argv[]) {
     using namespace std;
@@ -131,46 +142,12 @@ int main(int argc, char *argv[]) {
             send_message(string("PONG ") + explode_string(":",tokens[1])[1], irc_socket);
             continue;
         }
-        //:fikus!~fikus@ip-89-103-184-234.net.upcbroadband.cz PRIVMSG #ISAChannel :heeey
-        //:fik  !5967b8ea@gateway/web/freenode/ip.89.103.184.234 PRIVMSG #ISAChannel :hi there :)
 
-        //is it a PRIVMSG ?
+//        //is it a PRIVMSG ?
         unsigned long privmsg_position = response.find(" PRIVMSG ");
         if (privmsg_position != string::npos) {
-            unsigned long user_msg_start = response.find(":", privmsg_position);
-            if (user_msg_start != string::npos) {
-                string msg(response, user_msg_start+1);
-
-                if (response[0] == ':') {
-                    unsigned long excl_mark_position = response.find("!");
-                    string nickname(response, 1, excl_mark_position -1);
-                    cout << "nickname: >>" << nickname << "<<" << endl;
-
-                    cout << msg << endl;
-
-                    string channel_name = tokens[2];
-                    if (!(channel_name[0] == '#' || channel_name[0] == '&')) {
-                        err(1, "Cannot read the chanel name from the privmsg");
-                    }
-
-                    if (msg.find("?today") == 0) {
-                        time_t time_number;
-                        struct tm *time_struct;
-
-                        char date_buf[11] = "";
-                        time(&time_number);
-                        time_struct = localtime(&time_number);
-                        strftime(date_buf, 11, "%d.%m.%Y", time_struct);
-
-                        string message = string("PRIVMSG " + channel_name + " :" + date_buf);
-                        send_message(message, irc_socket);
-                    } else if (msg.find("?msg") == 0) {
-
-                    }
-                }
-
-                continue;
-            }
+            handle_privmsg(response, privmsg_position, tokens, irc_socket);
+            continue;
         }
 
     }
@@ -179,6 +156,46 @@ int main(int argc, char *argv[]) {
 
 
     return 0;
+}
+
+void handle_privmsg(string response, unsigned long privmsg_position, vector<string> tokens, int irc_socket) {
+    unsigned long user_msg_start = response.find(":", privmsg_position);
+    if (user_msg_start != string::npos) {
+        string msg(response, user_msg_start+1);
+
+        if (response[0] == ':') {
+            unsigned long excl_mark_position = response.find("!");
+            string nickname(response, 1, excl_mark_position -1);
+            cout << "nickname: >>" << nickname << "<<" << endl;
+
+            cout << msg << endl;
+
+            string channel_name = tokens[2];
+            if (!(channel_name[0] == '#' || channel_name[0] == '&')) {
+                err(1, "Cannot read the chanel name from the privmsg");
+            }
+
+            if (msg.find("?today") == 0) {
+                string message = string("PRIVMSG " + channel_name + " :" + get_today_date());
+                send_message(message, irc_socket);
+            } else if (msg.find("?msg") == 0) {
+
+            }
+        }
+
+    }
+}
+
+string get_today_date() {
+    time_t time_number;
+    struct tm *time_struct;
+
+    char date_buf[11] = "";
+    time(&time_number);
+    time_struct = localtime(&time_number);
+    strftime(date_buf, 11, "%d.%m.%Y", time_struct);
+
+    return string(date_buf);
 }
 
 void send_message(string message, int socket) {

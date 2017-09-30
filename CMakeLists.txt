@@ -3,5 +3,5 @@ project(isa)
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(SOURCE_FILES main.cpp)
+set(SOURCE_FILES main.cpp SyslogServer.cpp SyslogServer.h IrcServer.cpp IrcServer.h Irc.cpp Irc.h utils.cpp utils.h)
 add_executable(isa ${SOURCE_FILES})

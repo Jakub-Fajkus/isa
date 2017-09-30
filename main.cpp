@@ -16,6 +16,15 @@
 #include <cstring>
 #include <ifaddrs.h>
 #include <vector>
+#include<stdio.h>
+#include<stdlib.h>
+#include<string.h>
+#include<sys/socket.h>
+#include<arpa/inet.h>
+#include<netinet/in.h>
+#include<unistd.h>
+#include<netdb.h>
+#include<err.h>
 
 #define BUFSIZE 1025
 #define DATE_FORMAT_LENGTH 16 //Mmm dd hh:mm:ss
@@ -32,31 +41,56 @@ const char *months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", 
  * V MSG muzou byt pouze ascii znaky todo: diakritika?
  *
  *
+ *
+ *
+ * IRC: IRC zprava se sklada az ze 3 casti, ktere jsou oddeleny mezerou:
+ * prefix(volitenlne) - pokud je ve zprave, zprava zacina :
+ * command - validni IRC command, nebo 3 ascii cislice
+ * command parameters
+ *
+ * klienti nemaji posilat prefix ve svych zpravach!!
+ *
+ * kazda zprava je omezena na 512 znaku, vcetne crlf(ktere je na konci kazde zpravy), takze zbyva 510 znaku na command a jeho parametry
+ * crlf slouzi k rozdeleni streamu oktetu na jednotlive zpravy
+ * prazdne zpravy jsou zahozeny
+ *
+ *
+ *
+ *
  */
 
 using namespace std;
 
 void log(int client_socket, struct sockaddr_in server_address, const string user_message);
 
-int createSocket(const string server_hostname, struct sockaddr_in *server_address);
+int create_syslog_socket(const string server_hostname, struct sockaddr_in *server_address);
+
+int create_irc_socket(const string server_hostname, const int port, struct sockaddr_in *server_address);
 
 vector<string> explode_string(const string delimiter, string source);
 
-bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, std::vector<std::string> channels,
-                     string *syslogServer, vector<string> keywords);
+bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, string *channels,
+                      string *syslogServer,
+                      vector<string> keywords);
+
+char* get_local_ip(int sock);
+
+void send_message(string message, int socket);
+
+string read_message(int socket);
 
 int main(int argc, char *argv[]) {
     using namespace std;
 
-    struct sockaddr_in server_address;
-    int syslog_socket;
+    struct sockaddr_in syslog_server_address, irc_server_address;
+    int syslog_socket, irc_socket;
     string irc_host;
     int irc_port;
-    vector<string> channels, keywords;
-    string syslog_server;
+    vector<string> keywords;
+    string syslog_server, channels;
 
 
-    if (!parse_parameters(argc, argv, &irc_host, &irc_port, channels, &syslog_server, keywords) || irc_port == -1){
+    if (!parse_parameters(argc, argv, &irc_host, &irc_port, &channels, &syslog_server, keywords) || irc_port == -1){
         cerr << "Invalid parameters";
         return 1;
     }
@@ -67,19 +101,135 @@ int main(int argc, char *argv[]) {
 //    for (auto&& i : keywords) std::cout << i << ' ';
 //
 
-    //todo: create a thread for each irc channel
-    //all threads will share the same client socket, which must be protected with mutex!
-
-    syslog_socket = createSocket(syslog_server, &server_address); //todo: get from params!
-    log(syslog_socket, server_address, "<xfajku06>: neco to dela");
 
 
-///* prijeti odpovedi a jeji vypsani */
-//    bytesrx = recvfrom(client_socket, buf, BUFSIZE, 0, (struct sockaddr *) &server_address, &serverlen);
-//    if (bytesrx < 0)
-//        perror("ERROR: recvfrom");
-//    printf("Echo from server: %s", buf);
+    syslog_socket = create_syslog_socket(syslog_server, &syslog_server_address);
+
+    log(syslog_socket, syslog_server_address, "<xfajku06>: neco to dela");
+
+    irc_socket = create_irc_socket(irc_host, irc_port, &irc_server_address);
+
+    if (-1 == connect(irc_socket, (struct sockaddr *)&irc_server_address, sizeof(irc_server_address))) {
+        cerr << "Cannot connect to the IRC socket" << endl;
+    }
+
+    string user_message = "USER xfajku06 xfajku06 xfajku06 xfajku06";
+    send_message(user_message, irc_socket);
+
+    send_message("NICK xfajku06", irc_socket);
+
+    send_message("JOIN " + channels, irc_socket);
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+    while(true) {
+        string response = read_message(irc_socket);
+        vector<string> tokens = explode_string(" ", response);
+
+        //ping command
+        if (tokens.size() >= 2 && tokens[0] == "PING") {
+            send_message(string("PONG ") + explode_string(":",tokens[1])[1], irc_socket);
+            continue;
+        }
+        //:fikus!~fikus@ip-89-103-184-234.net.upcbroadband.cz PRIVMSG #ISAChannel :heeey
+        //:fik  !5967b8ea@gateway/web/freenode/ip.89.103.184.234 PRIVMSG #ISAChannel :hi there :)
+
+        //is it a PRIVMSG ?
+        unsigned long privmsg_position = response.find(" PRIVMSG ");
+        if (privmsg_position != string::npos) {
+            unsigned long user_msg_start = response.find(":", privmsg_position);
+            if (user_msg_start != string::npos) {
+                string msg(response, user_msg_start+1);
+
+                if (response[0] == ':') {
+                    unsigned long excl_mark_position = response.find("!");
+                    string nickname(response, 1, excl_mark_position -1);
+                    cout << "nickname: >>" << nickname << "<<" << endl;
+
+                    cout << msg << endl;
+
+                    string channel_name = tokens[2];
+                    if (!(channel_name[0] == '#' || channel_name[0] == '&')) {
+                        err(1, "Cannot read the chanel name from the privmsg");
+                    }
+
+                    if (msg.find("?today") == 0) {
+                        time_t time_number;
+                        struct tm *time_struct;
+
+                        char date_buf[11] = "";
+                        time(&time_number);
+                        time_struct = localtime(&time_number);
+                        strftime(date_buf, 11, "%d.%m.%Y", time_struct);
+
+                        string message = string("PRIVMSG " + channel_name + " :" + date_buf);
+                        send_message(message, irc_socket);
+                    } else if (msg.find("?msg") == 0) {
+
+                    }
+                }
+
+                continue;
+            }
+        }
+
+    }
+#pragma clang diagnostic pop
+
+
+
     return 0;
+}
+
+void send_message(string message, int socket) {
+    message += "\r\n";
+
+    int i = write(socket,message.c_str(),message.length());                    // send data to the server
+    if (i == -1)                                 // check if data was sent correctly
+        err(1,"write() failed");
+    else if (i != message.length())
+        err(1,"write(): buffer written partially");
+    else
+        cout << "Sent: " << message<<endl;
+}
+
+string read_message(int socket) {
+    char buffer[513] = "";
+    ssize_t i;
+
+    unsigned int read_chars = 0;
+    while (true) {
+        i = read(socket, buffer + read_chars, 1);
+        if (i == -1) {
+            err(1, "read() failed");
+        }
+
+        //if there is an CR LF pair, stop reading!
+        if (read_chars >= 1 && buffer[read_chars] == '\n' && buffer[read_chars-1] == '\r') {
+
+            cout << "RECEIVED: >>>" << string(buffer, read_chars - 1) << "<<<" << endl;
+
+            return string(buffer, read_chars - 1);
+        }
+
+        read_chars++;
+    }
+}
+
+char* get_local_ip(int sock) {
+    struct sockaddr_in local;
+    socklen_t len;
+
+    memset(&local,0,sizeof(local));   // erase the local address structure
+
+    // obtain the local IP address and port using getsockname()
+    len = sizeof(local);
+    if (getsockname(sock,(struct sockaddr *) &local, &len) == -1) {
+        cerr << "getsockname() failed";
+        exit(1);
+    }
+
+    return inet_ntoa(local.sin_addr);
 }
 
 void log(int client_socket, struct sockaddr_in server_address, const string user_message) {
@@ -96,10 +246,10 @@ void log(int client_socket, struct sockaddr_in server_address, const string user
     strftime(dateBuf, DATE_FORMAT_LENGTH, " %e %T", time_struct);
     buf = months[time_struct->tm_mon] + string(dateBuf) + " ";
 
-    cout << buf; //todo: remove me
+    buf += get_local_ip(client_socket);
+    buf += " isabot " + user_message;
 
-    buf += "192.168.0.1 "; //todo: either get from parameters or use get_machine_ip_address
-    buf += "isabot " + user_message;
+    cout << endl << endl <<buf << endl << endl;
 
 /* odeslani zpravy na server */
     serverlen = sizeof(server_address);
@@ -109,9 +259,9 @@ void log(int client_socket, struct sockaddr_in server_address, const string user
         perror("ERROR: sendto");
 }
 
-int createSocket(const string server_hostname, struct sockaddr_in *server_address) {
+int create_syslog_socket(const string server_hostname, struct sockaddr_in *server_address) {
     struct hostent *server;
-    int client_socket;
+    int syslog_socket;
 
 
     /* 2. ziskani adresy serveru pomoci DNS */
@@ -126,23 +276,45 @@ int createSocket(const string server_hostname, struct sockaddr_in *server_addres
     bcopy((char *) server->h_addr, (char *) &(server_address->sin_addr.s_addr), server->h_length);
     server_address->sin_port = htons(514);
 
-/* tiskne informace o vzdalenem soketu */
-    printf("INFO: Server socket: %s : %d \n", inet_ntoa(server_address->sin_addr), ntohs(server_address->sin_port));
-
 /* Vytvoreni soketu */
-    if ((client_socket = socket(AF_INET, SOCK_DGRAM, 0)) <= 0) {
-        perror("ERROR: socket");
+    if ((syslog_socket = socket(AF_INET, SOCK_DGRAM, 0)) <= 0) {
+        perror("ERROR: socket syslog");
         exit(EXIT_FAILURE);
     }
 
-    return client_socket;
+    return syslog_socket;
+}
+
+int create_irc_socket(const string server_hostname, const int port, struct sockaddr_in *server_address) {
+    struct hostent *server;
+    int irc_socket;
+
+    /* 2. ziskani adresy serveru pomoci DNS */
+    if ((server = gethostbyname(server_hostname.c_str())) == nullptr) {
+        cerr << "ERROR: no such host: " << server_hostname << endl;
+        exit(EXIT_FAILURE);
+    }
+
+/* 3. nalezeni IP adresy serveru a inicializace struktury server_address */
+    bzero((char *) server_address, sizeof(*server_address));
+    server_address->sin_family = AF_INET;
+    bcopy((char *) server->h_addr, (char *) &(server_address->sin_addr.s_addr), server->h_length);
+    server_address->sin_port = htons(port);
+
+/* Vytvoreni soketu */
+    if ((irc_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0) {
+        perror("ERROR: socket irc");
+        exit(EXIT_FAILURE);
+    }
+
+    return irc_socket;
 }
 
 
 //isabot HOST[:PORT] CHANNELS [-s SYSLOG_SERVER] [-l HIGHLIGHT] [-h|--help]
-bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, std::vector<std::string> channels,
-                     string *syslogServer,
-                     vector<string> keywords) {
+bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, string *channels,
+                      string *syslogServer,
+                      vector<string> keywords) {
 
     *ircPort = -1;
     *syslogServer = "";
@@ -176,9 +348,9 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, std
 
             }
         } else if (i == 2) {
-            channels = explode_string(string(","), current);
+            *channels = current;
 
-            for (string str : channels) {
+            for (string str : explode_string(string(","), current)) {
                 if (str.length() > 0 && !(str[0] == '#' || str[0] == '&')) {
                     cerr << "Invalid channel " << str;
                     exit(1);
@@ -222,7 +394,7 @@ vector<string> explode_string(const string delimiter, string source) {
             output.emplace_back(source.substr(start_position, end_position - start_position));
 
             start_position = end_position;
-            end_position = source.find(',', start_position + 1);
+            end_position = source.find(delimiter, start_position + 1);
 
             start_position++;
         } while (end_position != string::npos);
@@ -233,56 +405,3 @@ vector<string> explode_string(const string delimiter, string source) {
 
     return output;
 }
-
-
-//todo: copied, not tested, needs changes!!!
-//char* get_machine_ip_address() {
-//    struct ifaddrs *ifaddr, *ifa;
-//    int family, s, n;
-//    char host[NI_MAXHOST];
-//
-//    if (getifaddrs(&ifaddr) == -1) {
-//        perror("getifaddrs");
-//        exit(EXIT_FAILURE);
-//    }
-//
-//    /* Walk through linked list, maintaining head pointer so we
-//       can free list later */
-//
-//    for (ifa = ifaddr, n = 0; ifa != NULL; ifa = ifa->ifa_next, n++) {
-//        if (ifa->ifa_addr == NULL)
-//            continue;
-//
-//        family = ifa->ifa_addr->sa_family;
-//
-//        /* Display interface name and family (including symbolic
-//           form of the latter for the common families) */
-//
-//
-//        printf("%-8s %s (%d)\n",
-//               ifa->ifa_name,
-//               (family == AF_PACKET) ? "AF_PACKET" :
-//               (family == AF_INET) ? "AF_INET" :
-//               (family == AF_INET6) ? "AF_INET6" : "???",
-//               family);
-//
-//        /* For an AF_INET* interface address, display the address */
-//
-//        if (family == AF_INET || family == AF_INET6) {
-//            s = getnameinfo(ifa->ifa_addr,
-//                            (family == AF_INET) ? sizeof(struct sockaddr_in) :
-//                            sizeof(struct sockaddr_in6),
-//                            host, NI_MAXHOST,
-//                            NULL, 0, NI_NUMERICHOST);
-//            if (s != 0) {
-//                printf("getnameinfo() failed: %s\n", gai_strerror(s));
-//                exit(EXIT_FAILURE);
-//            }
-//
-//            printf("\t\taddress: <%s>\n", host);
-//
-//
-//        }
-//    }
-//}
-

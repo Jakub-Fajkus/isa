@@ -68,7 +68,7 @@ struct send_msg {
 
 using namespace std;
 
-void log(int client_socket, struct sockaddr_in server_address, const string user_message);
+void log(int syslog_socket, struct sockaddr_in syslog_address, const string user_message);
 
 int create_syslog_socket(const string server_hostname, struct sockaddr_in *server_address);
 
@@ -78,7 +78,7 @@ vector<string> explode_string(const string delimiter, string source);
 
 bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, string *channels,
                       string *syslogServer,
-                      vector<string> keywords);
+                      vector<string> &keywords);
 
 char* get_local_ip(int sock);
 
@@ -88,7 +88,9 @@ string read_message(int socket);
 
 string get_today_date();
 
-void handle_privmsg(string response, unsigned long privmsg_position, vector<string> tokens, int irc_socket) ;
+void handle_privmsg(string response, unsigned long privmsg_position, vector<string> tokens, vector<string> keywords, int irc_socket, int syslog_socket, struct sockaddr_in syslog_address);
+
+bool contains_keywords(const string &message, vector<string> keywords);
 
 int main(int argc, char *argv[]) {
     using namespace std;
@@ -109,7 +111,7 @@ int main(int argc, char *argv[]) {
 
 //    cout << "PREPARE!:" << endl;
 //    for (auto&& i : channels) std::cout << i << ' ';
-//    for (auto&& i : keywords) std::cout << i << ' ';
+    for (auto&& i : keywords) std::cout << i << ' ';
 //
 
 
@@ -143,10 +145,13 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
+        //todo: notice
+        //RECEIVED: >>>:card.freenode.net NOTICE * :*** No Ident response<<<
+
 //        //is it a PRIVMSG ?
         unsigned long privmsg_position = response.find(" PRIVMSG ");
         if (privmsg_position != string::npos) {
-            handle_privmsg(response, privmsg_position, tokens, irc_socket);
+            handle_privmsg(response, privmsg_position, tokens, keywords, irc_socket, syslog_socket, syslog_server_address);
             continue;
         }
 
@@ -158,7 +163,18 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void handle_privmsg(string response, unsigned long privmsg_position, vector<string> tokens, int irc_socket) {
+bool contains_keywords(const string &message, vector<string> keywords)
+{
+    for (const string &keyword : keywords) {
+        if (message.find(keyword) != string::npos) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void handle_privmsg(string response, unsigned long privmsg_position, vector<string> tokens, vector<string> keywords, int irc_socket, int syslog_socket, struct sockaddr_in syslog_address) {
     unsigned long user_msg_start = response.find(":", privmsg_position);
     if (user_msg_start != string::npos) {
         string msg(response, user_msg_start+1);
@@ -180,6 +196,10 @@ void handle_privmsg(string response, unsigned long privmsg_position, vector<stri
                 send_message(message, irc_socket);
             } else if (msg.find("?msg") == 0) {
 
+            } else {
+                if (contains_keywords(response, keywords)) {
+                    log(syslog_socket, syslog_address, string("<" + nickname + ">: " + msg));
+                }
             }
         }
 
@@ -205,7 +225,7 @@ void send_message(string message, int socket) {
     if (i == -1)                                 // check if data was sent correctly
         err(1,"write() failed");
     else if (i != message.length())
-        err(1,"write(): buffer written partially");
+        err(1,"wriuser_messagete(): buffer written partially");
     else
         cout << "Sent: " << message<<endl;
 }
@@ -249,11 +269,11 @@ char* get_local_ip(int sock) {
     return inet_ntoa(local.sin_addr);
 }
 
-void log(int client_socket, struct sockaddr_in server_address, const string user_message) {
+void log(int syslog_socket, struct sockaddr_in syslog_address, const string user_message) {
 
     int bytestx, bytesrx;
     socklen_t serverlen;
-    string buf;
+    string buf = "<134>";
     char dateBuf[DATE_FORMAT_LENGTH];
     time_t time_number;
     struct tm *time_struct;
@@ -261,22 +281,22 @@ void log(int client_socket, struct sockaddr_in server_address, const string user
     time(&time_number);
     time_struct = localtime(&time_number);
     strftime(dateBuf, DATE_FORMAT_LENGTH, " %e %T", time_struct);
-    buf = months[time_struct->tm_mon] + string(dateBuf) + " ";
+    buf += months[time_struct->tm_mon] + string(dateBuf) + " ";
 
-    buf += get_local_ip(client_socket);
+    buf += get_local_ip(syslog_socket);
     buf += " isabot " + user_message;
 
     cout << endl << endl <<buf << endl << endl;
 
 /* odeslani zpravy na server */
-    serverlen = sizeof(server_address);
-    bytestx = sendto(client_socket, buf.c_str(), buf.length() > 1024 ? 1024 : buf.length(), 0,
-                     (struct sockaddr *) &server_address, serverlen);
+    serverlen = sizeof(syslog_address);
+    bytestx = sendto(syslog_socket, buf.c_str(), buf.length() > 1024 ? 1024 : buf.length(), 0,
+                     (struct sockaddr *) &syslog_address, serverlen);
     if (bytestx < 0)
         perror("ERROR: sendto");
 }
 
-int create_syslog_socket(const string server_hostname, struct sockaddr_in *server_address) {
+int create_syslog_socket(const string server_hostname, struct sockaddr_in *syslog_address) {
     struct hostent *server;
     int syslog_socket;
 
@@ -288,10 +308,10 @@ int create_syslog_socket(const string server_hostname, struct sockaddr_in *serve
     }
 
 /* 3. nalezeni IP adresy serveru a inicializace struktury server_address */
-    bzero((char *) server_address, sizeof(*server_address));
-    server_address->sin_family = AF_INET;
-    bcopy((char *) server->h_addr, (char *) &(server_address->sin_addr.s_addr), server->h_length);
-    server_address->sin_port = htons(514);
+    bzero((char *) syslog_address, sizeof(*syslog_address));
+    syslog_address->sin_family = AF_INET;
+    bcopy((char *) server->h_addr, (char *) &(syslog_address->sin_addr.s_addr), server->h_length);
+    syslog_address->sin_port = htons(514);
 
 /* Vytvoreni soketu */
     if ((syslog_socket = socket(AF_INET, SOCK_DGRAM, 0)) <= 0) {
@@ -331,7 +351,7 @@ int create_irc_socket(const string server_hostname, const int port, struct socka
 //isabot HOST[:PORT] CHANNELS [-s SYSLOG_SERVER] [-l HIGHLIGHT] [-h|--help]
 bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, string *channels,
                       string *syslogServer,
-                      vector<string> keywords) {
+                      vector<string> &keywords) {
 
     *ircPort = -1;
     *syslogServer = "";
@@ -393,7 +413,7 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, str
     }
 
 //    for (auto&& i : channels) std::cout << i << ' ';
-//    for (auto&& i : keywords) std::cout << i << ' ';
+    for (auto&& i : keywords) std::cout << i << ' ';
 
     return true;
 }

@@ -48,38 +48,15 @@
  *
  */
 
-
-struct send_msg {
-    std::string user;
-    std::string message;
-    std::string channel;
-};
-
 using namespace std;
 
-void log(int syslog_socket, struct sockaddr_in syslog_address, const string user_message);
-
-
-vector<string> explode_string(const string delimiter, string source);
 
 bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, string *channels, string *syslogServer,
                       vector<string> &keywords);
 
-
-void send_message(string message, int socket);
-
-string get_today_date();
-
-void handle_privmsg(string response, unsigned long privmsg_position, vector<string> tokens, vector<string> keywords,
-                    int irc_socket, int syslog_socket, struct sockaddr_in syslog_address);
-
-bool contains_keywords(const string &message, vector<string> keywords);
-
 int main(int argc, char *argv[]) {
     using namespace std;
 
-    struct sockaddr_in syslog_server_address;
-    int irc_socket;
     string irc_host;
     int irc_port;
     vector<string> keywords;
@@ -94,16 +71,9 @@ int main(int argc, char *argv[]) {
 
     SyslogServer *syslog_server = new SyslogServer(syslog_server_name);
     IrcServer *irc_server = new IrcServer(irc_host, irc_port);
-    Irc *irc = new Irc(irc_server, syslog_server, keywords);
+    Irc *irc = new Irc(irc_server, syslog_server, keywords, channels);
 
-
-//    cout << "PREPARE!:" << endl;
-//    for (auto&& i : channels) std::cout << i << ' ';
-//    for (auto&& i : keywords) std::cout << i << ' ';
-//
-
-
-    irc->init_connection(channels);
+    irc->init_connection();
     irc->listen();
 
 
@@ -173,9 +143,6 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, str
     if (syslogServer->empty()) {
         *syslogServer = string("127.0.0.1");
     }
-
-//    for (auto&& i : channels) std::cout << i << ' ';
-    for (auto &&i : keywords) std::cout << i << ' ';
 
     return true;
 }

@@ -8,7 +8,7 @@ Channel::Channel(string &name) : name(name) {}
 
 void Channel::add_user(string nickname) {
     //check if the channel is already there
-    for(const LoggedUser &user : this->users) {
+    for (const LoggedUser &user : this->users) {
         if (user.nickname == nickname) {
             return;
         }
@@ -20,18 +20,28 @@ void Channel::add_user(string nickname) {
 }
 
 void Channel::remove_user(string user) {
+    for (int j = 0; j < this->users.size(); ++j) {
+        LoggedUser &logged_user = this->users[j];
 
+        if (logged_user.nickname == user) {
+            this->users.erase(this->users.begin() + j); //remove the j-th element
+        }
+    }
 }
 
-void Channel::get_user(string user) {
+bool Channel::is_logged(string user) {
+//get user if is logged or null, if not
+    for (const LoggedUser &user_object : this->users) {
+        if (user_object.nickname == user) {
+            return true;
+        }
+    }
 
+    return false;
 }
 
 void Channel::add_message(string user, string message) {
-    int size = this->messages.size();
     this->messages.emplace_back(UserMessage(user, message));
-    size = this->messages.size();
-    size = this->messages.size();
 }
 
 void Channel::get_mesage(string user, string message) {

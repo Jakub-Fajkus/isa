@@ -16,17 +16,8 @@ Irc::Irc(IrcServer *irc_server, SyslogServer *syslog_server, vector<string> keyw
     for (string &channel : explode_string(",", channels)) {
         Channel new_channel(channel);
 
-        //check if the channel is already there
-        bool found = false;
-        for (const Channel &channel_object : this->channels) {
-            if (channel_object.name == channel) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            this->channels.emplace_back(channel);
-        }
+        //creates a channel if it does not exist
+        this->get_channel(channel);
     }
 }
 
@@ -48,23 +39,29 @@ void Irc::listen() {
         if (tokens.size() >= 2 && tokens[0] == "PING") {
             this->irc_server->send_message(string("PONG ") + explode_string(":", tokens[1])[1]);
             continue;
-        }
 
-        //is it a PRIVMSG or NOTICE?
-        if (tokens.size() >= 2 && (tokens[1] == "PRIVMSG" || tokens[1] == "NOTICE")) {
+            //is it a PRIVMSG or NOTICE?
+        } else if (tokens.size() >= 2 && (tokens[1] == "PRIVMSG" || tokens[1] == "NOTICE")) {
             handle_privmsg(response, tokens);
             continue;
-        } else if (tokens.size() >= 6 && tokens[1] == "353") { //RPL_NAMEREPLY - response to WHO command
+        } else if (tokens.size() >= 6 && tokens[1] == "353") { //RPL_NAMEREPLY - response to NAMES command
 //            :tolkien.freenode.net 353 xfajku06 = #freenode :Whiskey hexa- ChrisLane mt
             string channel_name = tokens[4];
             Channel *channel = this->get_channel(channel_name);
+            //clear the logged users
+            channel->users = vector<LoggedUser>();
 
-            //remove the :
+            //remove the : from the first user name
             tokens[5] = string(tokens[5], 1);
 
+            //add all users
             for (int i = 5; i < tokens.size(); ++i) {
-                channel->add_user(tokens[i]);
 
+                //is it the operator?
+                if (tokens[i][0] == '@') {
+                    tokens[i] = string(tokens[i], 1); //remove the first character
+                }
+                this->add_user_to_channel(channel_name, tokens[i]);
                 this->send_messages_to_user(tokens[i], channel_name);
             }
 
@@ -79,18 +76,29 @@ void Irc::listen() {
 
         }
 //        //leaving the channel
-////        :fikus!~fikus@ip-89-103-184-234.net.upcbroadband.cz PART #ISAChannel :"Leaving"
-//        else if (tokens.size() >= 3 && tokens[1] == "PART") {
-//            string nickname = this->get_nickname_from_message(response);
-//            vector<string> channels = explode_string(",", tokens[2]);
-//
-//            for(const string &channel_name : channels) {
-//                this->remove_user_from_channel(channel_name, nickname);
-//            }
-//        }
-        //todo: maybe not and fuck it :D
-        //todo: kick
-        //todo: quit
+//        :fikus!~fikus@ip-89-103-184-234.net.upcbroadband.cz PART #ISAChannel :"Leaving"
+        else if (tokens.size() >= 3 && tokens[1] == "PART") {
+            string nickname = this->get_nickname_from_message(response);
+            vector<string> channels = explode_string(",", tokens[2]);
+
+            for (const string &channel_name : channels) {
+                this->remove_user_from_channel(channel_name, nickname);
+            }
+            //:fikus!~fikus@ip-89-103-184-234.net.upcbroadband.cz QUIT :Client Quit
+        } else if (tokens.size() >= 3 && tokens[1] == "QUIT") {
+
+            string nickname = this->get_nickname_from_message(response);
+
+            for (Channel &channel : this->channels) {
+                channel.remove_user(nickname);
+            }
+            //:fikus!~fikus@ip-89-103-184-234.net.upcbroadband.cz KICK #fikustest fikus2 :fikus2
+        } else if (tokens.size() >= 4 && tokens[1] == "KICK") {
+            this->remove_user_from_channel(tokens[2], tokens[3]);
+        }
+
+        //todo: prejmenovani usera!
+//        :fikus!~fikus@ip-89-103-184-234.net.upcbroadband.cz NICK :fikuss
 
     }
 }
@@ -118,20 +126,22 @@ void Irc::handle_privmsg(string response, vector<string> tokens) {
             } else if (msg.find("?msg ") == 0) {
                 //?msg login:ahoj pepo
                 if (msg.find(":") != string::npos) {
-                    //todo: DO DOKUMENTACE -> ZPRAVA SE NEPOSLE HNED,PROTOZE KDYZ SE KLIENT ODPOJI ZE SERVERU, NEPRISLA MI DO BOTA ZADNA ZPRAVA
-                    //TODO: TAKZE NENI SPOLEHLIVE UKLADAT SEZNAM PRIHLASENYCH UZIVATELU
-                    this->add_message_for_user(string(msg, 5, msg.find(":")-5), channel_name, string(msg, 5)); //5 = length("?msg ")
-                    this->send_names_command(); //request all users... if the user is logged in, the message will be sent
+                    string send_to_nickname = string(msg, 5, msg.find(":") - 5);
+
+                    //queue the message
+                    this->add_message_for_user(send_to_nickname, channel_name, string(msg, 5)); //5 = length("?msg ")
+
+                    //send the queued message if the user is logged in
+                    if (this->get_channel(channel_name)->is_logged(send_to_nickname)) {
+                        this->send_messages_to_user(send_to_nickname, channel_name);
+                    }
                 }
             }
 
             if (contains_keywords(response, keywords)) {
-                string nickname = this->get_nickname_from_message(response);
-
                 this->syslog_server->log("<" + nickname + ">: " + msg);
             }
         }
-
     }
 }
 
@@ -155,14 +165,13 @@ void Irc::send_names_command() {
     this->irc_server->send_message("NAMES " + this->channels_string);
 }
 
-Channel* Irc::get_channel(string &name) {
+Channel *Irc::get_channel(string &name) {
 
     for (int i = 0; i < this->channels.size(); ++i) {
         if (this->channels[i].name == name) {
             return &this->channels[i];
         }
     }
-
 
     Channel new_channel(name);
     this->channels.emplace_back(new_channel);
@@ -181,7 +190,8 @@ string Irc::get_nickname_from_message(string response) {
 }
 
 void Irc::remove_user_from_channel(string channel, string user) {
-    //todo:
+    Channel *channel_object = this->get_channel(channel);
+    channel_object->remove_user(user);
 }
 
 vector<string> Irc::get_messages_for_user(string user, string channel) {
@@ -198,7 +208,8 @@ vector<string> Irc::get_messages_for_user(string user, string channel) {
 
         if (message.user == user) {
             unsent_messages.emplace_back(message.message);
-            messages->erase(messages->begin() + j); //remove the i-th element
+            messages->erase(messages->begin() + j); //remove the j-th element
+            --j;//because of the message erasing, the j-th element must be processed once again as the array was shifted
         }
     }
 
@@ -213,10 +224,7 @@ void Irc::send_messages_to_user(string user, string channel) {
 }
 
 void Irc::add_message_for_user(string user, string channel, string message) {
-    int size = this->get_channel(channel)->messages.size();
     this->get_channel(channel)->add_message(user, message);
-    size = this->get_channel(channel)->messages.size();
-    size = this->get_channel(channel)->messages.size();
 
 
 }

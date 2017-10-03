@@ -21,7 +21,7 @@ public:
     explicit Channel(string &name);
     void add_user(string nickname);
     void remove_user(string user);
-    void get_user(string user);
+    bool is_logged(string user);
 
     void add_message(string user, string message);
     void get_mesage(string user, string message);

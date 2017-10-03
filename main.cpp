@@ -76,6 +76,7 @@ int main(int argc, char *argv[]) {
     irc->init_connection();
     irc->listen();
 
+    //todo: handle ctrl+c and sent the QUIT message, close the sockets and try to free the memory
 
     return 0;
 }

@@ -70,3 +70,7 @@ char *SyslogServer::get_local_ip() {
     return inet_ntoa(local.sin_addr);
 
 }
+
+bool SyslogServer::close_socket() {
+    return close(this->syslog_socket) == 0;
+}

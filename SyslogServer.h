@@ -32,6 +32,8 @@ private:
 public:
     explicit SyslogServer(string server_hostname);
     void log(const string user_message);
+
+    bool close_socket();
 };
 
 

@@ -53,6 +53,11 @@ string IrcServer::read_message() {
             return string(buffer, read_chars - 1);
         }
 
+        if (read_chars > 512) {
+            cerr << "The IRC message was too long";
+            exit(1);
+        }
+
         read_chars++;
     }
 }
@@ -60,11 +65,15 @@ string IrcServer::read_message() {
 void IrcServer::send_message(string message) {
     message += "\r\n";
 
-    int i = write(this->irc_socket, message.c_str(), message.length());                    // send data to the server
-    if (i == -1)                                 // check if data was sent correctly
+    int i = write(this->irc_socket, message.c_str(), message.length()); // send data to the server
+    if (i == -1) // check if data was sent correctly
         err(1, "write() failed");
     else if (i != message.length())
         err(1, "write(): buffer written partially");
     else
         cout << "Sent: " << message << endl;
+}
+
+bool IrcServer::close_socket() {
+    return close(this->irc_socket) == 0;
 }

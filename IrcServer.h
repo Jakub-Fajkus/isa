@@ -29,6 +29,8 @@ public:
     explicit IrcServer(string server_hostname, int port);
     string read_message();
     void send_message(string message);
+
+    bool close_socket();
 };
 
 

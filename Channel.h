@@ -22,8 +22,10 @@ public:
     void add_user(string nickname);
     void remove_user(string user);
     bool is_logged(string user);
+    vector<string> get_messages_for_user(string user);
 
-    void add_message(string user, string message);
+
+        void add_message(string user, string message);
     void get_mesage(string user, string message);
     void remove_message(UserMessage message);
 };

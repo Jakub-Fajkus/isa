@@ -11,42 +11,13 @@
 #include <vector>
 #include <unistd.h>
 #include <err.h>
+#include <cstdlib>
+#include <signal.h>
 
 #include "utils.h"
 #include "SyslogServer.h"
 #include "IrcServer.h"
 #include "Irc.h"
-
-#define BUFSIZE 1025
-
-
-/* NOTES:
- * UDP syslog packet consists of: PRI, HEADER, MSG
- * IT'S LENGTH MUST BE 1024 BYTES OR LESS
- * PRI: uzavrena v <>, obsahuje 3-5 znaku
- * v nasem pripade: 16 a 6 =  <134>
- *
- * HOSTNAME obsahuje IP adresu stroje
- * V MSG muzou byt pouze ascii znaky todo: diakritika?
- *
- *
- *
- *
- * IRC: IRC zprava se sklada az ze 3 casti, ktere jsou oddeleny mezerou:
- * prefix(volitenlne) - pokud je ve zprave, zprava zacina :
- * command - validni IRC command, nebo 3 ascii cislice
- * command parameters
- *
- * klienti nemaji posilat prefix ve svych zpravach!!
- *
- * kazda zprava je omezena na 512 znaku, vcetne crlf(ktere je na konci kazde zpravy), takze zbyva 510 znaku na command a jeho parametry
- * crlf slouzi k rozdeleni streamu oktetu na jednotlive zpravy
- * prazdne zpravy jsou zahozeny
- *
- *
- *
- *
- */
 
 using namespace std;
 
@@ -54,14 +25,29 @@ using namespace std;
 bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, string *channels, string *syslogServer,
                       vector<string> &keywords);
 
+Irc* irc;
+
+static void handler(int signum)
+{
+    irc->quit();
+    exit(0);
+}
+
 int main(int argc, char *argv[]) {
-    using namespace std;
+    struct sigaction sa{};
+
+    sa.sa_handler = handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART; /* Restart functions if interrupted by handler */
+    if (sigaction(SIGINT, &sa, nullptr) == -1) {
+        cerr << "Cannot register signal";
+        exit(1);
+    }
 
     string irc_host;
     int irc_port;
     vector<string> keywords;
     string syslog_server_name, channels;
-
 
     if (!parse_parameters(argc, argv, &irc_host, &irc_port, &channels, &syslog_server_name, keywords) ||
         irc_port == -1) {
@@ -71,12 +57,10 @@ int main(int argc, char *argv[]) {
 
     SyslogServer *syslog_server = new SyslogServer(syslog_server_name);
     IrcServer *irc_server = new IrcServer(irc_host, irc_port);
-    Irc *irc = new Irc(irc_server, syslog_server, keywords, channels);
+    irc = new Irc(irc_server, syslog_server, keywords, channels);
 
     irc->init_connection();
     irc->listen();
-
-    //todo: handle ctrl+c and sent the QUIT message, close the sockets and try to free the memory
 
     return 0;
 }
@@ -89,9 +73,22 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, str
     *ircPort = -1;
     *syslogServer = "";
 
+    for(int i = 1; i < argc; ++i) {
+        string current = argv[i];
+
+        if (current == "-h" || current == "--help") {
+            cout << "isabot HOST[:PORT] CHANNELS [-s SYSLOG_SERVER] [-l HIGHLIGHT] [-h|--help]\n"
+                    "HOST je název serveru (např. irc.freenode.net)\n"
+                    "PORT je číslo portu, na kterém server naslouchá (výchozí 6667)\n"
+                    "CHANNELS obsahuje název jednoho či více kanálů, na které se klient připojí (název kanálu je zadán včetně úvodního # nebo &; v případě více kanálů jsou tyto odděleny čárkou)\n"
+                    "-s SYSLOG_SERVER je ip adresa logovacího (SYSLOG) serveru\n"
+                    "-l HIGHLIGHT seznam klíčových slov oddělených čárkou (např. \"ip,tcp,udp,isa\")\n";
+            exit(0);
+        }
+    }
+
     //program name + 2 parameters, both with value
     if (argc < 3) {
-        fprintf(stderr, "Invalid arguments - not enough arguments");
         return false;
     }
 
@@ -107,7 +104,7 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, str
         if (i == 1) {
             unsigned long position = current.find(':');
             if (position == string::npos) { //not found, hurray
-                *ircHost = current; //todo: memory leak? does it copy or just assign?
+                *ircHost = current;
             } else {
                 *ircHost = current.substr(0, position);
                 *ircPort = atoi(current.substr(position + 1).c_str());
@@ -133,9 +130,6 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, str
             } else if (current == "-l") {
                 keywords = explode_string(",", string(argv[i + 1]));
                 i++;
-            } else if (current == "-h" || current == "--help") {
-                cout << "Printing some help!" << endl; //todo: add some help...
-                exit(0);
             }
         }
 

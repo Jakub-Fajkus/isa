@@ -7,7 +7,7 @@
 Channel::Channel(string &name) : name(name) {}
 
 void Channel::add_user(string nickname) {
-    //check if the channel is already there
+    //check if the user is already there
     for (const LoggedUser &user : this->users) {
         if (user.nickname == nickname) {
             return;
@@ -50,4 +50,21 @@ void Channel::get_mesage(string user, string message) {
 
 void Channel::remove_message(UserMessage message) {
 
+}
+
+vector<string> Channel::get_messages_for_user(string user) {
+    vector<string> unsent_messages;
+
+    //get all the messages for the user and remove them
+    for (int j = 0; j < this->messages.size(); ++j) {
+        UserMessage &message = this->messages[j];
+
+        if (message.user == user) {
+            unsent_messages.emplace_back(message.message);
+            this->messages.erase(this->messages.begin() + j); //remove the j-th element
+            --j;//because of the message erasing, the j-th element must be processed once again as the array was shifted
+        }
+    }
+
+    return unsent_messages;
 }

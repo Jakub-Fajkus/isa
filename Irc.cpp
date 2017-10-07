@@ -123,6 +123,9 @@ void Irc::check_for_error_messages(vector<string> tokens) {
         throw "The bot's nickname(xfajku06) is already used";
     } else if (tokens.size() >= 2 && tokens[1] == "465") { //bot banned
         throw "The bot is banned";
+    } else if (tokens.size() >= 2 && tokens[1] == "403") { //ERR_NOSUCHCHANNEL
+        //:hobana.freenode.net 403 xfajku06 &fikustest :No such channel
+        throw string("ERR_CANNOTSENDTOCHAN: Cannot connect to channel because it does not exist: ") + tokens[3];
     } else if (tokens.size() >= 2 && tokens[1] == "404") { //ERR_CANNOTSENDTOCHAN
         throw string("ERR_CANNOTSENDTOCHAN: Cannot send a message to channel: ") + tokens[2];
     } else if (tokens.size() >= 2 && tokens[1] == "405") { //ERR_TOOMANYCHANNELS

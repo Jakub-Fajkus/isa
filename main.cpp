@@ -1,31 +1,28 @@
 #include <iostream>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <ctime>
 
-#include <stdlib.h>
-#include <arpa/inet.h>
-#include <strings.h>
-#include <cstring>
-#include <vector>
-#include <unistd.h>
-#include <err.h>
 #include <cstdlib>
-#include <signal.h>
+#include <vector>
+#include <csignal>
 
 #include "utils.h"
 #include "SyslogServer.h"
 #include "IrcServer.h"
 #include "Irc.h"
 
+
+/* todo:
+ * Vse v jednom souboru?
+ * Hlavicky souboru
+ *
+ */
+
 using namespace std;
 
+Irc *irc;
 
 bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, string *channels, string *syslogServer,
                       vector<string> &keywords);
 
-Irc* irc;
 
 static void handler(int signum)
 {
@@ -38,7 +35,7 @@ int main(int argc, char *argv[]) {
 
     sa.sa_handler = handler;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART; /* Restart functions if interrupted by handler */
+    sa.sa_flags = SA_RESTART;
     if (sigaction(SIGINT, &sa, nullptr) == -1) {
         cerr << "Cannot register signal";
         exit(1);
@@ -51,16 +48,21 @@ int main(int argc, char *argv[]) {
 
     if (!parse_parameters(argc, argv, &irc_host, &irc_port, &channels, &syslog_server_name, keywords) ||
         irc_port == -1) {
-        cerr << "Invalid parameters";
+        cerr << "Invalid parameters" << endl;
         return 1;
     }
 
-    SyslogServer *syslog_server = new SyslogServer(syslog_server_name);
-    IrcServer *irc_server = new IrcServer(irc_host, irc_port);
-    irc = new Irc(irc_server, syslog_server, keywords, channels);
+    try {
+        SyslogServer *syslog_server = new SyslogServer(syslog_server_name);
+        IrcServer *irc_server = new IrcServer(irc_host, irc_port);
+        irc = new Irc(irc_server, syslog_server, keywords, channels);
 
-    irc->init_connection();
-    irc->listen();
+        irc->init_connection();
+        irc->listen();
+    } catch (string &message) {
+        cerr << "Error: " << message;
+        exit(1);
+    }
 
     return 0;
 }
@@ -87,7 +89,7 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, str
         }
     }
 
-    //program name + 2 parameters, both with value
+    //program name + 2 parameters
     if (argc < 3) {
         return false;
     }

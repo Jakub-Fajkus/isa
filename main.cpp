@@ -1,6 +1,10 @@
-#include <iostream>
+//
+// Author: Jakub Fajkus
+// Project: ISA IRC bot
+// Last revision: 17.11.2017
+//
 
-#include <cstdlib>
+#include <iostream>
 #include <vector>
 #include <csignal>
 
@@ -9,30 +13,39 @@
 #include "IrcServer.h"
 #include "Irc.h"
 
-
-/* todo:
- * Vse v jednom souboru?
- * Hlavicky souboru
- *
- */
-
 using namespace std;
 
 Irc *irc;
 
+/**
+ * Parse the command line parameters
+ *
+ * @param argc
+ * @param argv
+ * @param ircHost
+ * @param ircPort
+ * @param channels
+ * @param syslogServer
+ * @param keywords
+ *
+ * @return True, if the parameters was successfully parsed, false otherwise
+ */
 bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, string *channels, string *syslogServer,
                       vector<string> &keywords);
 
-
-static void handler(int signum)
-{
+/**
+ * System signal handler
+ *
+ * @param signum
+ */
+static void handler(int signum) {
     irc->quit();
     exit(0);
 }
 
 int main(int argc, char *argv[]) {
+    //set the signal handler
     struct sigaction sa{};
-
     sa.sa_handler = handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART;
@@ -46,6 +59,7 @@ int main(int argc, char *argv[]) {
     vector<string> keywords;
     string syslog_server_name, channels;
 
+    //parse the parameters
     if (!parse_parameters(argc, argv, &irc_host, &irc_port, &channels, &syslog_server_name, keywords) ||
         irc_port == -1) {
         cerr << "Invalid parameters" << endl;
@@ -58,9 +72,13 @@ int main(int argc, char *argv[]) {
         irc = new Irc(irc_server, syslog_server, keywords, channels);
 
         irc->init_connection();
+        syslog_server->local_ip = irc_server->get_local_ip();
         irc->listen();
     } catch (string &message) {
-        cerr << "Error: " << message;
+        cerr << "Error: " << message << endl;
+        exit(1);
+    } catch (char const *message) {
+        cerr << "Error: " << message << endl;
         exit(1);
     }
 
@@ -75,14 +93,15 @@ bool parse_parameters(int argc, char *argv[], string *ircHost, int *ircPort, str
     *ircPort = -1;
     *syslogServer = "";
 
-    for(int i = 1; i < argc; ++i) {
+    for (int i = 1; i < argc; ++i) {
         string current = argv[i];
 
         if (current == "-h" || current == "--help") {
             cout << "isabot HOST[:PORT] CHANNELS [-s SYSLOG_SERVER] [-l HIGHLIGHT] [-h|--help]\n"
                     "HOST je název serveru (např. irc.freenode.net)\n"
                     "PORT je číslo portu, na kterém server naslouchá (výchozí 6667)\n"
-                    "CHANNELS obsahuje název jednoho či více kanálů, na které se klient připojí (název kanálu je zadán včetně úvodního # nebo &; v případě více kanálů jsou tyto odděleny čárkou)\n"
+                    "CHANNELS obsahuje název jednoho či více kanálů, na které se klient připojí "
+                    "(název kanálu je zadán včetně úvodního # nebo &; v případě více kanálů jsou tyto odděleny čárkou)\n"
                     "-s SYSLOG_SERVER je ip adresa logovacího (SYSLOG) serveru\n"
                     "-l HIGHLIGHT seznam klíčových slov oddělených čárkou (např. \"ip,tcp,udp,isa\")\n";
             exit(0);

@@ -1,6 +1,9 @@
 //
-// Created by jakub on 01.10.17.
+// Author: Jakub Fajkus
+// Project: ISA IRC bot
+// Last revision: 17.11.2017
 //
+
 
 #include <iostream>
 #include <ctime>

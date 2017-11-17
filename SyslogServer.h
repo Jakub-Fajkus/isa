@@ -1,5 +1,7 @@
 //
-// Created by jakub on 30.09.17.
+// Author: Jakub Fajkus
+// Project: ISA IRC bot
+// Last revision: 17.11.2017
 //
 
 #ifndef ISA_SYSLOGSERVER_H
@@ -11,7 +13,6 @@
 #include <netdb.h>
 #include <ctime>
 
-#include <stdlib.h>
 #include <arpa/inet.h>
 #include <strings.h>
 #include <cstring>
@@ -27,12 +28,29 @@ class SyslogServer {
 private:
     int syslog_socket;
     struct sockaddr_in syslog_address;
-    char* get_local_ip();
 
 public:
-    explicit SyslogServer(string server_hostname);
-    void log(const string user_message);
+   string local_ip;
 
+    /**
+     * Connect to the server with given hostname or IP address
+     *
+     * @param server_hostname Hostname or IP address of the syslog server
+     */
+    explicit SyslogServer(string server_hostname);
+
+    /**
+     * Log the given user message
+     *
+     * @param user_message
+     */
+    void log(string user_message);
+
+    /**
+     * Close the server socket
+     *
+     * @return True, if the socket was successfully closed, false otherwise
+     */
     bool close_socket();
 };
 

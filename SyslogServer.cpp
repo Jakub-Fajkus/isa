@@ -1,5 +1,7 @@
 //
-// Created by jakub on 30.09.17.
+// Author: Jakub Fajkus
+// Project: ISA IRC bot
+// Last revision: 17.11.2017
 //
 
 #include "SyslogServer.h"
@@ -9,22 +11,20 @@ const char *months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", 
 SyslogServer::SyslogServer(string server_hostname) {
     struct hostent *server;
 
-    /* 2. ziskani adresy serveru pomoci DNS */
+    //get the dns record of the IRC server
     if ((server = gethostbyname(server_hostname.c_str())) == nullptr) {
-        cerr << "ERROR: no such host: " << server_hostname << endl;
-        exit(EXIT_FAILURE);
+        throw "ERROR: no such IRC server: " + server_hostname;
     }
 
-/* 3. nalezeni IP adresy serveru a inicializace struktury server_address */
-    memset(&this->syslog_address,0,sizeof(this->syslog_address));
+    //get the server ip address
+    memset(&this->syslog_address, 0, sizeof(this->syslog_address));
     this->syslog_address.sin_family = AF_INET;
     bcopy((char *) server->h_addr, (char *) &(this->syslog_address.sin_addr.s_addr), server->h_length);
     this->syslog_address.sin_port = htons(514);
 
-/* Vytvoreni soketu */
+    //create the server socket
     if ((this->syslog_socket = socket(AF_INET, SOCK_DGRAM, 0)) <= 0) {
-        perror("ERROR: socket syslog");
-        exit(EXIT_FAILURE);
+        throw "ERROR: cannot connect to the syslog socket";
     }
 }
 
@@ -36,39 +36,24 @@ void SyslogServer::log(const string user_message) {
     time_t time_number;
     struct tm *time_struct;
 
+    //get the current time
     time(&time_number);
     time_struct = localtime(&time_number);
+
+    //format the time to the syslog format
     strftime(dateBuf, DATE_FORMAT_LENGTH, " %e %T", time_struct);
     buf += months[time_struct->tm_mon] + string(dateBuf) + " ";
-
-    buf += this->get_local_ip();
+    //add the local ip or hostname
+    buf += this->local_ip;
+    //add the message
     buf += " isabot " + user_message;
 
-    cout << endl << endl << buf << endl << endl;
-
-/* odeslani zpravy na server */
+    //send the message to the server
     serverlen = sizeof(syslog_address);
-    bytestx = sendto(syslog_socket, buf.c_str(), buf.length() > 1024 ? 1024 : buf.length(), 0,
+    bytestx = sendto(syslog_socket, buf.c_str(), buf.length() > 1024 ? 1024 : buf.length()+1, 0,
                      (struct sockaddr *) &syslog_address, serverlen);
     if (bytestx < 0)
-        perror("ERROR: sendto");
-}
-
-char *SyslogServer::get_local_ip() {
-    struct sockaddr_in local;
-    socklen_t len;
-
-    memset(&local, 0, sizeof(local));   // erase the local address structure
-
-    // obtain the local IP address and port using getsockname()
-    len = sizeof(local);
-    if (getsockname(this->syslog_socket, (struct sockaddr *) &local, &len) == -1) {
-        cerr << "getsockname() failed";
-        exit(1);
-    }
-
-    return inet_ntoa(local.sin_addr);
-
+        throw "error while trying to send data to syslog server";
 }
 
 bool SyslogServer::close_socket() {

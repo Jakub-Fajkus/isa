@@ -1,0 +1,47 @@
+IRC bot s logováním syslog
+
+Aplikace využívající BSD sockety pro připojení k IRC a syslog serveru.
+Poskytuje možnost sledovat více IRC kanálů a monitorovat zpráv, které uživatelé píší.
+Tyto zprávy je možné logovat na syslog server, pokud obsahují klíčová slova, zadaná při spuštění bota.
+Bot také poskytuje uživatelům na IRC kanále dvě služby.
+První z dnich je výpis aktualního data, který se aktivuje zaskláním zprávy "?today".
+Druhou službou je možnost vytvořit a uložit zprávu pro uživatele, který není přihlášený.
+Bot si tuto zprávu uloží a odešle ji na kanál poté, co se daný uživatel přihlásí.
+Tato funkce se aktivuje zasláním zprávý "?msg NICKNAME:ZPRÁVA".
+Kde NICKNAME je nickname uživatele, kterému se má psolat zpráva a ZPRÁVA je samotná zpráva, která se má odelsat.
+
+Následuje popis použití a příklady použití převzatý ze zadání projektu"
+
+Použití:
+isabot HOST[:PORT] CHANNELS [-s SYSLOG_SERVER] [-l HIGHLIGHT] [-h|--help]
+HOST je název serveru (např. irc.freenode.net)
+PORT je číslo portu, na kterém server naslouchá (výchozí 6667)
+CHANNELS obsahuje název jednoho či více kanálů, na které se klient připojí (název kanálu je zadán včetně úvodního # nebo &; v případě více kanálů jsou tyto odděleny čárkou)
+-s SYSLOG_SERVER je ip adresa logovacího (SYSLOG) serveru
+-l HIGHLIGHT seznam klíčových slov oddělených čárkou (např. "ip,tcp,udp,isa")
+
+Příklady použití:
+isabot irc.freenode.net:6667 "#ISAChannel,#IRC" -s 192.168.0.1 -l "ip,isa"
+isabot irc.freenode.net "#ISAChannel,#IRC" -l "ip,isa" -s 127.0.0.1
+isabot irc.freenode.net #ISAChannel -l "tcp,udp"
+
+
+Seznam odevzdaných souborů:
+README
+Makefile
+manual.pdf
+Channel.cpp
+Channel.h
+Irc.cpp
+Irc.h
+IrcServer.cpp
+IrcServer.h
+LoggedUser.cpp
+LoggedUser.h
+main.cpp
+SyslogServer.cpp
+SyslogServer.h
+UserMessage.cpp
+UserMessage.h
+utils.cpp
+utils.h

@@ -10,7 +10,7 @@ Bot si tuto zprávu uloží a odešle ji na kanál poté, co se daný uživatel 
 Tato funkce se aktivuje zasláním zprávý "?msg NICKNAME:ZPRÁVA".
 Kde NICKNAME je nickname uživatele, kterému se má psolat zpráva a ZPRÁVA je samotná zpráva, která se má odelsat.
 
-Následuje popis použití a příklady použití převzatý ze zadání projektu"
+Následuje popis použití a příklady použití převzatý ze zadání projektu:
 
 Použití:
 isabot HOST[:PORT] CHANNELS [-s SYSLOG_SERVER] [-l HIGHLIGHT] [-h|--help]

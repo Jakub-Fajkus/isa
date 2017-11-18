@@ -1,7 +1,7 @@
 //
 // Author: Jakub Fajkus
 // Project: ISA IRC bot
-// Last revision: 17.11.2017
+// Last revision: 18.11.2017
 //
 
 #include <iostream>
@@ -76,9 +76,15 @@ int main(int argc, char *argv[]) {
         irc->listen();
     } catch (string &message) {
         cerr << "Error: " << message << endl;
+        if (irc != nullptr) {
+            irc->quit();
+        }
         exit(1);
     } catch (char const *message) {
         cerr << "Error: " << message << endl;
+        if (irc != nullptr) {
+            irc->quit();
+        }
         exit(1);
     }
 

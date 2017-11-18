@@ -1,7 +1,7 @@
 //
 // Author: Jakub Fajkus
 // Project: ISA IRC bot
-// Last revision: 17.11.2017
+// Last revision: 18.11.2017
 //
 
 #include "Irc.h"

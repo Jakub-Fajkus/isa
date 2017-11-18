@@ -42,13 +42,13 @@ void Irc::listen() {
             this->handle_part(response, tokens);
         } else if (tokens.size() >= 3 && tokens[1] == "QUIT") {
             this->handle_quit(response);
+        } else if (tokens.size() >= 4 && tokens[1] == "KICK" && tokens[3] == "xfajku06") {
+//            :user!~user@2001:67c:1220:8b4:bca1:7c2:446d:3f2e KICK #test xfajku06 :xfajku06
+            throw "The bot was kicked";
         } else if (tokens.size() >= 4 && tokens[1] == "KICK") {
             this->handle_kick(tokens);
         } else if (tokens.size() >= 2 && tokens[1] == "NICK") {
             this->handle_nick(response, tokens);
-        } else if (tokens.size() >= 4 && tokens[1] == "KICK" && tokens[3] == "xfajku06") {
-//            :user!~user@2001:67c:1220:8b4:bca1:7c2:446d:3f2e KICK #test xfajku06 :xfajku06
-            throw "The bot was kicked";
         } else {
             this->handle_error_messages(tokens);
         }

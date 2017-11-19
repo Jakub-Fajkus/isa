@@ -1,0 +1,22 @@
+graph G {
+	graph [bb="0,0,263.99,168.18"];
+	node [label="\N"];
+	LoggedUser	 [height=0.5,
+		pos="67.594,69.804",
+		width=1.8776];
+	Channel	 [height=0.5,
+		pos="143.78,79.34",
+		width=1.3721];
+	LoggedUser -- Channel	 [pos="129.09,77.502 129.23,77.519 129.36,77.535 129.5,77.552",
+		style=dotted];
+	Irc	 [height=0.5,
+		pos="173.31,150.18",
+		width=0.75];
+	Channel -- Irc	 [pos="151.23,97.217 155.74,108.04 161.47,121.78 165.96,132.56",
+		style=dotted];
+	UserMessage	 [height=0.5,
+		pos="189.9,18",
+		width=2.0582];
+	UserMessage -- Channel	 [pos="176.56,35.742 170.39,43.951 163.08,53.672 156.93,61.85",
+		style=dotted];
+}

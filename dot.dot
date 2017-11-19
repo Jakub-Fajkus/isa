@@ -1,0 +1,6 @@
+graph G {
+	LoggedUser -- Channel [style=dotted];
+	UserMessage -- Channel [style=dotted];
+	Channel -- Irc [style=dotted];
+}
+

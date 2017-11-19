@@ -1,0 +1,67 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+Channel	Channel.h	17;"	c
+Channel	Channel.h	24;"	p	class:Channel	access:public
+Irc	Irc.h	15;"	c
+Irc	Irc.h	179;"	p	class:Irc	access:public
+IrcServer	IrcServer.h	24;"	c
+IrcServer	IrcServer.h	35;"	p	class:IrcServer	access:public
+LoggedUser	LoggedUser.h	14;"	c
+LoggedUser	LoggedUser.h	18;"	p	class:LoggedUser	access:public
+SyslogServer	SyslogServer.h	27;"	c
+SyslogServer	SyslogServer.h	40;"	p	class:SyslogServer	access:public
+UserMessage	UserMessage.h	14;"	c
+UserMessage	UserMessage.h	19;"	p	class:UserMessage	access:public
+add_message	Channel.h	71;"	p	class:Channel	access:public
+add_message_for_user	Irc.h	107;"	p	class:Irc	access:private
+add_user	Channel.h	33;"	p	class:Channel	access:public
+add_user_to_channel	Irc.h	64;"	p	class:Irc	access:private
+channels	Irc.h	20;"	m	class:Irc	access:private
+channels_string	Irc.h	21;"	m	class:Irc	access:private
+close_socket	IrcServer.h	56;"	p	class:IrcServer	access:public
+close_socket	SyslogServer.h	54;"	p	class:SyslogServer	access:public
+contains_keywords	Irc.h	39;"	p	class:Irc	access:private
+explode_string	utils.h	33;"	p
+get_channel	Irc.h	56;"	p	class:Irc	access:private
+get_local_ip	IrcServer.h	63;"	p	class:IrcServer	access:public
+get_messages_for_user	Channel.h	62;"	p	class:Channel	access:public
+get_messages_for_user	Irc.h	90;"	p	class:Irc	access:private
+get_nickname_from_message	Irc.h	81;"	p	class:Irc	access:private
+handle_error_messages	Irc.h	46;"	p	class:Irc	access:private
+handle_join	Irc.h	127;"	p	class:Irc	access:private
+handle_kick	Irc.h	157;"	p	class:Irc	access:private
+handle_name_reply	Irc.h	117;"	p	class:Irc	access:private
+handle_nick	Irc.h	168;"	p	class:Irc	access:private
+handle_part	Irc.h	137;"	p	class:Irc	access:private
+handle_privmsg	Irc.h	29;"	p	class:Irc	access:private
+handle_quit	Irc.h	146;"	p	class:Irc	access:private
+init_connection	Irc.h	187;"	p	class:Irc	access:public
+irc_address	IrcServer.h	27;"	m	class:IrcServer	typeref:struct:IrcServer::sockaddr_in	access:private
+irc_server	Irc.h	17;"	m	class:Irc	access:private
+irc_socket	IrcServer.h	26;"	m	class:IrcServer	access:private
+is_logged	Channel.h	51;"	p	class:Channel	access:public
+keywords	Irc.h	19;"	m	class:Irc	access:private
+listen	Irc.h	192;"	p	class:Irc	access:public
+local_ip	SyslogServer.h	33;"	m	class:SyslogServer	access:public
+log	SyslogServer.h	47;"	p	class:SyslogServer	access:public
+message	UserMessage.h	17;"	m	class:UserMessage	access:public
+messages	Channel.h	20;"	m	class:Channel	access:private
+months	SyslogServer.cpp	9;"	v
+name	Channel.h	22;"	m	class:Channel	access:public
+nickname	LoggedUser.h	16;"	m	class:LoggedUser	access:public
+parse_parameters	main.cpp	33;"	p	file:
+quit	Irc.h	197;"	p	class:Irc	access:public
+read_message	IrcServer.h	42;"	p	class:IrcServer	access:public
+remove_user	Channel.h	42;"	p	class:Channel	access:public
+remove_user_from_channel	Irc.h	72;"	p	class:Irc	access:private
+send_message	IrcServer.h	49;"	p	class:IrcServer	access:public
+send_messages_to_user	Irc.h	98;"	p	class:Irc	access:private
+syslog_address	SyslogServer.h	30;"	m	class:SyslogServer	typeref:struct:SyslogServer::sockaddr_in	access:private
+syslog_server	Irc.h	18;"	m	class:Irc	access:private
+syslog_socket	SyslogServer.h	29;"	m	class:SyslogServer	access:private
+user	UserMessage.h	16;"	m	class:UserMessage	access:public
+users	Channel.h	19;"	m	class:Channel	access:private
